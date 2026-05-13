@@ -5,6 +5,7 @@ import confetti from 'canvas-confetti';
 
 interface RandomWheelProps {
   onAssignTeams: (teams: string[]) => void;
+  onTeamPicked?: (team: string) => void;
   maxTeams?: number;
 }
 
@@ -14,7 +15,7 @@ const COLORS = [
   '#a78bfa', '#c084fc', '#e879f9', '#f472b6'
 ];
 
-export function RandomWheel({ onAssignTeams, maxTeams = 16 }: RandomWheelProps) {
+export function RandomWheel({ onAssignTeams, onTeamPicked, maxTeams = 16 }: RandomWheelProps) {
   const [names, setNames] = useState<string[]>([]);
   const [newName, setNewName] = useState('');
   const [isSpinning, setIsSpinning] = useState(false);
@@ -79,7 +80,7 @@ export function RandomWheel({ onAssignTeams, maxTeams = 16 }: RandomWheelProps) 
   }, [names, rotation]);
 
   const spin = () => {
-    if (isSpinning || names.length < 2) return;
+    if (isSpinning || names.length < 1) return;
 
     setIsSpinning(true);
     setWinner(null);
@@ -109,18 +110,24 @@ export function RandomWheel({ onAssignTeams, maxTeams = 16 }: RandomWheelProps) 
         const finalRotation = currentRotation % (Math.PI * 2);
         const sliceAngle = (Math.PI * 2) / names.length;
         
-        // The pointer is at the right (0 radians)
-        // We need to find which slice is at 0 radians.
-        // A slice goes from i*sliceAngle + rot to (i+1)*sliceAngle + rot
-        // We want to find i such that (i*sliceAngle + rot) <= 0 <= ((i+1)*sliceAngle + rot) mod 2PI
-        // Or more simply: the pointer is at 0. The slice that contains 0 is the winner.
-        // But the slices are drawn clockwise. 
-        // Let's adjust to find the index:
         const normalizedRot = (Math.PI * 2 - (finalRotation % (Math.PI * 2))) % (Math.PI * 2);
         const winnerIndex = Math.floor(normalizedRot / sliceAngle);
         const winningName = names[winnerIndex];
+        const newNames = names.filter((_, i) => i !== winnerIndex);
         
         setWinner(winningName);
+        setNames(newNames);
+        if (onTeamPicked) onTeamPicked(winningName);
+
+        if (newNames.length === 1) {
+            setTimeout(() => {
+                 const lastWinner = newNames[0];
+                 setWinner(lastWinner);
+                 setNames([]);
+                 if (onTeamPicked) onTeamPicked(lastWinner);
+            }, 1000);
+        }
+        
         confetti({
           particleCount: 100,
           spread: 70,
@@ -249,7 +256,7 @@ export function RandomWheel({ onAssignTeams, maxTeams = 16 }: RandomWheelProps) 
 
           <button 
             onClick={spin}
-            disabled={isSpinning || names.length < 2}
+            disabled={isSpinning || names.length < 1}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-white text-black shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:scale-100 font-black uppercase text-xs z-20"
           >
             {isSpinning ? <RotateCw className="animate-spin" /> : 'SPIN'}

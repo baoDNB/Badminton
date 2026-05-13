@@ -679,7 +679,15 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
               onAssignTeams={(newTeams) => {
                 setTeams(newTeams);
                 setActiveTab('tournament');
-              }} 
+              }}
+              onTeamPicked={(winner) => {
+                const emptyIdx = teams.findIndex(t => !t || t.trim() === '');
+                if (emptyIdx !== -1) {
+                    const newTeams = [...teams];
+                    newTeams[emptyIdx] = winner;
+                    setTeams(newTeams);
+                }
+              }}
             />
           </motion.section>
         )}
