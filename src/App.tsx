@@ -173,11 +173,11 @@ function TournamentBracket({ matches, category, format }: { matches: Match[], ca
                     <div className="space-y-2">
                        <div className={`flex justify-between items-center text-[10px] font-bold transition-colors ${winner === 'A' ? 'text-emerald-400' : 'text-neutral-400'}`}>
                           <span className="truncate max-w-[120px]">{match.teamA}</span>
-                          <span className="font-mono bg-neutral-950 px-2 py-0.5 rounded-md border border-neutral-800">{match.setsA}</span>
+                          <span className="font-mono bg-neutral-950 px-2 py-0.5 rounded-md border border-neutral-800">{match.scoreA}</span>
                        </div>
                        <div className={`flex justify-between items-center text-[10px] font-bold transition-colors ${winner === 'B' ? 'text-emerald-400' : 'text-neutral-400'}`}>
                           <span className="truncate max-w-[120px]">{match.teamB}</span>
-                          <span className="font-mono bg-neutral-950 px-2 py-0.5 rounded-md border border-neutral-800">{match.setsB}</span>
+                          <span className="font-mono bg-neutral-950 px-2 py-0.5 rounded-md border border-neutral-800">{match.scoreB}</span>
                        </div>
                     </div>
 
@@ -921,27 +921,17 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                 <div className="grid grid-cols-3 items-center text-center gap-4">
                     <div className="space-y-2">
                         <h4 className="text-sm font-black text-white uppercase tracking-tight truncate">{match.teamA}</h4>
-                        <div className="flex justify-center gap-1">
-                            {[0].map(i => (
-                            <div key={i} className={`w-6 h-1 rounded-full ${i < match.setsA ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-neutral-900'}`} />
-                            ))}
-                        </div>
                     </div>
                     
                     <div className="flex flex-col items-center">
                         <div className="text-3xl font-black tabular-nums tracking-tighter text-neutral-200">
-                            {match.setsA} - {match.setsB}
+                            {match.scoreA} - {match.scoreB}
                         </div>
                         <span className="text-[8px] font-black text-neutral-700 uppercase tracking-[0.3em] mt-1">Kết quả t.đấu</span>
                     </div>
 
                     <div className="space-y-2">
                         <h4 className="text-sm font-black text-white uppercase tracking-tight truncate">{match.teamB}</h4>
-                        <div className="flex justify-center gap-1">
-                            {[0].map(i => (
-                            <div key={i} className={`w-6 h-1 rounded-full ${i < match.setsB ? 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.5)]' : 'bg-neutral-900'}`} />
-                            ))}
-                        </div>
                     </div>
                 </div>
 
