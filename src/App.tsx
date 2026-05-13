@@ -385,8 +385,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
   };
 
   const generateTournament = async () => {
-    if (teams.filter(t => t.trim() !== '').length !== 16) {
-        alert("Vui lòng điền đủ 16 đội");
+    if (teams.some(t => !t.trim())) {
         return;
     }
     
@@ -613,15 +612,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                                 {['16 đội', '12 đội (Double Chance 1.5)'].map((fmt) => (
                                     <button 
                                       key={fmt}
-                                      onClick={() => {
-                                          setTournamentFormat(fmt as any);
-                                          const targetLength = fmt === '16 đội' ? 16 : 12;
-                                          setTeams(prev => {
-                                              const newTeams = Array(targetLength).fill('');
-                                              prev.forEach((t, i) => { if (i < targetLength) newTeams[i] = t; });
-                                              return newTeams;
-                                          });
-                                      }}
+                                      onClick={() => setTournamentFormat(fmt as any)}
                                       className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
                                         tournamentFormat === fmt ? 'bg-emerald-500 text-black shadow-lg' : 'bg-neutral-800 text-neutral-500 hover:text-white'
                                       }`}
@@ -862,15 +853,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
 
             <RandomWheel 
               onAssignTeams={(newTeams) => {
-                const newFormat = newTeams.length <= 12 ? '12 đội (Double Chance 1.5)' : '16 đội';
-                
-                // Ensure teams state array matches the selected format length
-                const targetLength = newFormat === '12 đội (Double Chance 1.5)' ? 12 : 16;
-                const paddedTeams = Array(targetLength).fill('');
-                newTeams.forEach((t, i) => { if (i < targetLength) paddedTeams[i] = t; });
-                
-                setTeams(paddedTeams);
-                setTournamentFormat(newFormat);
+                setTeams(newTeams);
                 setActiveTab('tournament');
               }}
               onTeamPicked={(winner) => {
