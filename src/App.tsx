@@ -30,6 +30,7 @@ import {
 } from './services/firebaseService';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, query, onSnapshot, orderBy, where, doc, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore';
+import { RandomWheel } from './components/RandomWheel';
 
 // --- Components ---
 
@@ -187,7 +188,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
   const [defaultRefereeEmail, setDefaultRefereeEmail] = useState('');
   const [filterCategory, setFilterCategory] = useState<'Tất cả' | 'Đôi nam nữ' | 'Đôi nam'>('Tất cả');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'create' | 'tournament' | 'monitor' | 'history' | 'bracket'>('monitor');
+  const [activeTab, setActiveTab] = useState<'create' | 'tournament' | 'monitor' | 'history' | 'bracket' | 'luckywheel'>('monitor');
 
   useEffect(() => {
     const q = query(collection(db, 'matches'), orderBy('updatedAt', 'desc'));
@@ -411,6 +412,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
         {[
           { id: 'monitor', label: 'Giám sát', icon: LayoutDashboard },
           { id: 'bracket', label: 'Sơ đồ', icon: Trophy },
+          { id: 'luckywheel', label: 'Bốc thăm', icon: RotateCcw },
           { id: 'tournament', label: 'Giải đấu 16 đội', icon: Trophy },
           { id: 'history', label: 'Lịch sử', icon: History }
         ].map(tab => (
@@ -436,6 +438,11 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
             className="space-y-8"
           >
             <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-10">
+                    <button onClick={() => setActiveTab('luckywheel')} className="hover:scale-110 transition-transform">
+                        <RotateCcw size={64} className="text-emerald-500" />
+                    </button>
+                </div>
                 <div className="relative z-10 space-y-8">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
@@ -648,6 +655,35 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
             <TournamentBracket matches={matches} category={filterCategory} />
           </motion.div>
         )}
+        {activeTab === 'luckywheel' && (
+          <motion.section 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="space-y-6"
+          >
+            <div className="flex justify-between items-center px-4">
+              <div className="space-y-1">
+                <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">Vòng Quay May Mắn</h2>
+                <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mt-1">Bốc thăm chia bảng ngẫu nhiên</p>
+              </div>
+              <button 
+                onClick={() => setActiveTab('tournament')}
+                className="px-6 py-2 bg-neutral-800 text-neutral-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:text-white transition-all"
+              >
+                Về quản lý đội
+              </button>
+            </div>
+
+            <RandomWheel 
+              onAssignTeams={(newTeams) => {
+                setTeams(newTeams);
+                setActiveTab('tournament');
+              }} 
+            />
+          </motion.section>
+        )}
+
         {activeTab === 'history' && (
           <motion.section 
             initial={{ opacity: 0, y: 10 }}
