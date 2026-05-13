@@ -153,10 +153,10 @@ export function RandomWheel({ onAssignTeams, onTeamPicked, maxTeams = 16 }: Rand
 
   const shuffleAndFill = () => {
     const shuffled = [...names].sort(() => Math.random() - 0.5);
-    // Fill up to maxTeams with empty strings if needed
-    const filled = Array(maxTeams).fill('');
+    const targetSize = names.length <= 12 ? 12 : 16;
+    const filled = Array(targetSize).fill('');
     shuffled.forEach((name, i) => {
-      if (i < maxTeams) filled[i] = name;
+      if (i < targetSize) filled[i] = name;
     });
     onAssignTeams(filled);
   };
