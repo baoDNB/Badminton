@@ -298,8 +298,8 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                 id: mId(i + 7),
                 court: `Sân ${(i % 3) + 1}`,
                 category: category,
-                teamA: 'Chờ M' + (i * 2 + 1),
-                teamB: 'Chờ M' + (i * 2 + 2),
+                teamA: 'Thua M' + (i * 2 + 1),
+                teamB: 'Thua M' + (i * 2 + 2),
                 status: 'upcoming',
                 bracketInfo: { roundId: 'Vòng Vé Vớt', matchIndex: i + 7 } // Winners do not auto-propagate
             });
