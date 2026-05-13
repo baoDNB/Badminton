@@ -909,8 +909,12 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
     if (!currentMatch || currentMatch.status === 'finished') return;
     if (currentMatch.scoreA === 0 && currentMatch.scoreB === 0) return;
 
+    const newHistory = currentMatch.pointHistory ? [...currentMatch.pointHistory] : [];
+    newHistory.pop(); // Remove the last point entry
+
     const update: Partial<Match> = {
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        pointHistory: newHistory
     };
 
     // Very simple undo: just decrement the last point if we know who got it (serving)
@@ -1132,7 +1136,7 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
                     <span>Tỉ số</span>
                     <span className="col-span-2 text-right">Thời gian</span>
                 </div>
-                {(currentMatch.pointHistory || []).slice(-10).map((entry, idx) => {
+                {(currentMatch.pointHistory || []).slice().reverse().slice(0, 10).map((entry, idx) => {
                     // Expecting format: "Đội <Name> ghi điểm (<AScore>-<BScore>) lúc <Time>"
                     // A simple regex approach to split the string
                     const match = entry.match(/Đội (.+) ghi điểm \((.+)\) lúc (.+)/);
