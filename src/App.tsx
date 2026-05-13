@@ -852,12 +852,16 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
             </div>
 
             <RandomWheel 
+              maxTeams={tournamentFormat === '16 đội' ? 16 : 12}
               onAssignTeams={(newTeams) => {
-                setTeams(newTeams);
+                const paddedTeams = Array(16).fill('');
+                newTeams.forEach((t, i) => paddedTeams[i] = t);
+                setTeams(paddedTeams);
                 setActiveTab('tournament');
               }}
               onTeamPicked={(winner) => {
-                const emptyIdx = teams.findIndex(t => !t || t.trim() === '');
+                const limit = tournamentFormat === '16 đội' ? 16 : 12;
+                const emptyIdx = teams.findIndex((t, i) => i < limit && (!t || t.trim() === ''));
                 if (emptyIdx !== -1) {
                     const newTeams = [...teams];
                     newTeams[emptyIdx] = winner;
