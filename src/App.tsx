@@ -95,7 +95,7 @@ function LoginScreen() {
   );
 }
 
-function TournamentBracket({ matches, category }: { matches: Match[], category?: string }) {
+function TournamentBracket({ matches, category, format }: { matches: Match[], category?: string, format?: '16 đội' | '12 đội (Double Chance 1.5)' }) {
   const availableCategories = Array.from(new Set(matches.map(m => m.category))).filter(Boolean) as string[];
   
   // If category is "Tất cả", prefer "Đôi nam nữ" if it exists, otherwise use the first available category
@@ -107,7 +107,23 @@ function TournamentBracket({ matches, category }: { matches: Match[], category?:
     ? matches.filter(m => m.category === displayCategory)
     : [];
 
-  const rounds = [
+  const tournamentIds = [...new Set(filteredMatches.map(m => m.id.split('_')[0]))];
+  const latestTournamentId = tournamentIds[0];
+  const latestTournamentMatches = latestTournamentId 
+      ? filteredMatches.filter(m => m.id.startsWith(latestTournamentId))
+      : [];
+    
+  const inferredFormat = latestTournamentMatches.length >= 28 ? '16 đội' : '12 đội (Double Chance 1.5)';
+  const tournamentFormat = format || inferredFormat;
+
+  const rounds = tournamentFormat === '12 đội (Double Chance 1.5)' ? [
+    { id: 'round1', name: 'Vòng 1', matchIndices: [1, 2, 3, 4, 5, 6] },
+    { id: 'round2', name: 'Playoff', matchIndices: [7, 8, 9] },
+    { id: 'round3', name: 'Tứ Kết', matchIndices: [10, 11, 12, 13] },
+    { id: 'round4', name: 'Bán Kết', matchIndices: [14, 15] },
+    { id: 'round5', name: 'Tranh giải 3', matchIndices: [16] },
+    { id: 'round6', name: 'Chung Kết', matchIndices: [17] }, 
+  ] : [
     { id: 'round1', name: 'Vòng 1', matchIndices: [1, 2, 3, 4, 5, 6, 7, 8] },
     { id: 'round2', name: 'Vòng 2 (T/L)', matchIndices: [9, 10, 11, 12, 13, 14, 15, 16] },
     { id: 'round_rep', name: 'Vé Vớt', matchIndices: [17, 18, 19, 20] },
@@ -117,10 +133,10 @@ function TournamentBracket({ matches, category }: { matches: Match[], category?:
   ];
 
   const getMatchByTitleIdx = (idx: number) => {
-    return filteredMatches.find(m => m.bracketInfo?.matchIndex === idx);
+    return latestTournamentMatches.find(m => m.bracketInfo?.matchIndex === idx);
   };
 
-  if (filteredMatches.length === 0) {
+  if (latestTournamentMatches.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 bg-neutral-900/10 rounded-[2rem] border border-dashed border-neutral-800 mx-4">
         <Trophy className="w-12 h-12 text-neutral-800 mb-4 opacity-50" />
@@ -183,7 +199,7 @@ function TournamentBracket({ matches, category }: { matches: Match[], category?:
 
 function AdminDashboard({ user }: { user: FirebaseUser }) {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [teams, setTeams] = useState<string[]>(Array(12).fill(''));
+  const [teams, setTeams] = useState<string[]>(Array(16).fill(''));
   const [tournamentFormat, setTournamentFormat] = useState<'16 đội' | '12 đội (Double Chance 1.5)'>('16 đội');
   const [category, setCategory] = useState<'Đôi nam nữ' | 'Đôi nam'>('Đôi nam nữ');
   const [defaultRefereeEmail, setDefaultRefereeEmail] = useState('');
@@ -225,7 +241,8 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
   };
 
   const generateTournament12 = async () => {
-    if (teams.filter(t => t.trim() !== '').length !== 12) {
+    const activeTeams = teams.slice(0, 12);
+    if (activeTeams.filter(t => t.trim() !== '').length !== 12) {
         alert("Vui lòng điền đủ 12 đội");
         return;
     }
@@ -246,16 +263,32 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
     const mId = (idx: number) => `${tournamentId}_m${idx}`;
 
     try {
+        const pWinners = [
+            { w: mId(10), wp: 'A', l: mId(7), lp: 'A' }, // M1
+            { w: mId(11), wp: 'A', l: mId(7), lp: 'B' }, // M2
+            { w: mId(12), wp: 'A', l: mId(8), lp: 'A' }, // M3
+            { w: mId(13), wp: 'A', l: mId(8), lp: 'B' }, // M4
+            { w: mId(13), wp: 'B', l: mId(9), lp: 'A' }, // M5
+            { w: mId(12), wp: 'B', l: mId(9), lp: 'B' }, // M6
+        ];
+
         // Vòng 1: 6 matches (12 teams)
         for (let i = 0; i < 6; i++) {
             await createMatch({
                 id: mId(i + 1),
                 court: `Sân ${(i % 3) + 1}`,
                 category: category,
-                teamA: teams[i * 2],
-                teamB: teams[i * 2 + 1],
+                teamA: activeTeams[i * 2],
+                teamB: activeTeams[i * 2 + 1],
                 status: 'upcoming',
-                bracketInfo: { roundId: 'Vòng 1', matchIndex: i + 1 }
+                bracketInfo: { 
+                    roundId: 'Vòng 1', 
+                    matchIndex: i + 1,
+                    winnerToMatchId: pWinners[i].w,
+                    winnerToPosition: pWinners[i].wp as 'A' | 'B',
+                    loserToMatchId: pWinners[i].l,
+                    loserToPosition: pWinners[i].lp as 'A' | 'B'
+                }
             });
         }
 
@@ -265,36 +298,58 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                 id: mId(i + 7),
                 court: `Sân ${(i % 3) + 1}`,
                 category: category,
-                teamA: 'Chờ kết quả V1',
-                teamB: 'Chờ kết quả V1',
+                teamA: 'Chờ M' + (i * 2 + 1),
+                teamB: 'Chờ M' + (i * 2 + 2),
                 status: 'upcoming',
-                bracketInfo: { roundId: 'Vòng Vé Vớt', matchIndex: i + 1 }
+                bracketInfo: { roundId: 'Vòng Vé Vớt', matchIndex: i + 7 } // Winners do not auto-propagate
             });
         }
 
         // Tứ kết: 4 matches
+        const qfTeams = [
+            { a: 'Thắng M1', b: 'Vé Vớt 2', w: mId(14), wp: 'A' }, // M10
+            { a: 'Thắng M2', b: 'Vé Vớt 1', w: mId(15), wp: 'A' }, // M11
+            { a: 'Thắng M3', b: 'Thắng M6', w: mId(15), wp: 'B' }, // M12
+            { a: 'Thắng M4', b: 'Thắng M5', w: mId(14), wp: 'B' }, // M13
+        ];
         for (let i = 0; i < 4; i++) {
             await createMatch({
                 id: mId(i + 10),
                 court: `Sân ${(i % 4) + 1}`,
                 category: category,
-                teamA: 'Chờ kết quả',
-                teamB: 'Chờ kết quả',
+                teamA: qfTeams[i].a,
+                teamB: qfTeams[i].b,
                 status: 'upcoming',
-                bracketInfo: { roundId: 'Tứ Kết', matchIndex: i + 1 }
+                bracketInfo: { 
+                    roundId: 'Tứ Kết', 
+                    matchIndex: i + 10,
+                    winnerToMatchId: qfTeams[i].w,
+                    winnerToPosition: qfTeams[i].wp as 'A' | 'B',
+                }
             });
         }
 
         // Bán kết: 2 matches
+        const sfTeams = [
+            { a: 'Thắng M10', b: 'Thắng M13', w: mId(17), wp: 'A', l: mId(16), lp: 'A' }, // M14
+            { a: 'Thắng M11', b: 'Thắng M12', w: mId(17), wp: 'B', l: mId(16), lp: 'B' }, // M15
+        ];
         for (let i = 0; i < 2; i++) {
              await createMatch({
                 id: mId(i + 14),
                 court: `Sân 1`,
                 category: category,
-                teamA: 'Chờ kết quả',
-                teamB: 'Chờ kết quả',
+                teamA: sfTeams[i].a,
+                teamB: sfTeams[i].b,
                 status: 'upcoming',
-                bracketInfo: { roundId: 'Bán Kết', matchIndex: i + 1 }
+                bracketInfo: { 
+                    roundId: 'Bán Kết', 
+                    matchIndex: i + 14,
+                    winnerToMatchId: sfTeams[i].w,
+                    winnerToPosition: sfTeams[i].wp as 'A' | 'B',
+                    loserToMatchId: sfTeams[i].l,
+                    loserToPosition: sfTeams[i].lp as 'A' | 'B'
+                }
             });
         }
 
@@ -303,10 +358,10 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
             id: mId(16),
             court: 'Sân 1',
             category: category,
-            teamA: 'Chờ kết quả',
-            teamB: 'Chờ kết quả',
+            teamA: 'Thua M14',
+            teamB: 'Thua M15',
             status: 'upcoming',
-            bracketInfo: { roundId: 'Tranh Giải 3', matchIndex: 1 }
+            bracketInfo: { roundId: 'Tranh Giải 3', matchIndex: 16 }
         });
 
         // Chung kết: 1 match
@@ -314,10 +369,10 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
             id: mId(17),
             court: 'Sân 1',
             category: category,
-            teamA: 'Chờ kết quả',
-            teamB: 'Chờ kết quả',
+            teamA: 'Thắng M14',
+            teamB: 'Thắng M15',
             status: 'upcoming',
-            bracketInfo: { roundId: 'Chung Kết', matchIndex: 1 }
+            bracketInfo: { roundId: 'Chung Kết', matchIndex: 17 }
         });
         
         alert("Đã khởi tạo giải đấu 12 đội (Double Chance 1.5). Tổng 17 trận.");
@@ -602,7 +657,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {teams.map((team, idx) => (
+                        {teams.slice(0, tournamentFormat === '16 đội' ? 16 : 12).map((team, idx) => (
                             <div key={idx} className="relative">
                                 <span className="absolute -top-2 -left-2 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-lg flex items-center justify-center text-[10px] font-black text-emerald-500 z-10 shadow-lg">{idx + 1}</span>
                                 <input 
@@ -948,6 +1003,66 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
     }
   };
 
+  const handleCommitPlayoff = async () => {
+    if (!isAdmin) return;
+    const categoryMatches = allMatches.filter(m => (filterCategory === 'Tất cả' || filterCategory === m.category) && m.id);
+    if (categoryMatches.length === 0) return;
+    const currentTourneyId = categoryMatches[0].id.split('_')[0];
+    const tourneyMatches = allMatches.filter(m => m.id.startsWith(currentTourneyId));
+    
+    const playoffs = tourneyMatches.filter(m => m.bracketInfo?.roundId === 'Vòng Vé Vớt');
+    if (playoffs.length !== 3) {
+        alert('Giải đấu này không phải định dạng 12 đội hoặc không tìm thấy các trận Vé Vớt.');
+        return;
+    }
+    if (!playoffs.every(m => m.status === 'finished')) {
+        alert('Phải chờ cả 3 trận Vé Vớt (Playoff) kết thúc mới có thể tính hiệu số.');
+        return;
+    }
+
+    if (!window.confirm('Chốt kết quả Vé Vớt: Xét hiệu số 3 đội thắng, 2 đội điểm cao nhất sẽ vào Tứ Kết. Xác nhận?')) return;
+    
+    setLoading(true);
+    try {
+        const pWinners = playoffs.map(m => {
+            const isAWinner = m.setsA > m.setsB || m.scoreA > m.scoreB;
+            const winnerTeam = isAWinner ? m.teamA : m.teamB;
+            // Hiệu số = Điểm thắng - Điểm thua
+            const hieuSo = isAWinner ? (m.scoreA - m.scoreB) : (m.scoreB - m.scoreA);
+            return { team: winnerTeam, hieuSo, matchId: m.id, topScore: Math.max(m.scoreA, m.scoreB) };
+        });
+        
+        // Sort by Point Difference descending. If tied, sort by topScore descending.
+        pWinners.sort((a, b) => b.hieuSo - a.hieuSo || b.topScore - a.topScore);
+        
+        const top1 = pWinners[0].team;
+        const top2 = pWinners[1].team;
+        
+        // Find QF Matches
+        const qfMatches = tourneyMatches.filter(m => m.bracketInfo?.roundId === 'Tứ Kết');
+        const qf1 = qfMatches.find(m => m.teamA === 'Vé Vớt 1' || m.teamB === 'Vé Vớt 1');
+        const qf2 = qfMatches.find(m => m.teamA === 'Vé Vớt 2' || m.teamB === 'Vé Vớt 2');
+        
+        if (qf1) {
+            await updateMatch(qf1.id, {
+                teamA: qf1.teamA === 'Vé Vớt 1' ? top1 : qf1.teamA,
+                teamB: qf1.teamB === 'Vé Vớt 1' ? top1 : qf1.teamB
+            });
+        }
+        if (qf2) {
+            await updateMatch(qf2.id, {
+                teamA: qf2.teamA === 'Vé Vớt 2' ? top2 : qf2.teamA,
+                teamB: qf2.teamB === 'Vé Vớt 2' ? top2 : qf2.teamB
+            });
+        }
+        alert(`Đã chốt xong! ${top1} (HS: ${pWinners[0].hieuSo}) và ${top2} (HS: ${pWinners[1].hieuSo}) vào Tứ Kết. Đội ${pWinners[2].team} bị loại.`);
+    } catch(err) {
+        console.error(err);
+        alert('Có lỗi khi chốt vé vớt.');
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
     // List upcoming and live matches for referee
     let q = query(collection(db, 'matches'), where('status', 'in', ['upcoming', 'live']), orderBy('updatedAt', 'desc'));
@@ -1075,7 +1190,15 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
               <h2 className="text-2xl font-black uppercase text-white tracking-tighter italic">Sân thi đấu</h2>
               <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest">Dành cho trọng tài</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 justify-end">
+                {isAdmin && (
+                    <button 
+                        onClick={handleCommitPlayoff}
+                        className="px-4 py-2 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[10px] font-black rounded-xl uppercase tracking-widest hover:bg-yellow-500/20 transition-all disabled:opacity-50"
+                    >
+                        Chốt Vé Vớt
+                    </button>
+                )}
                 <button 
                   onClick={() => setShowBracket(!showBracket)}
                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
