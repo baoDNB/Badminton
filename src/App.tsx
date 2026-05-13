@@ -870,7 +870,14 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
     if (!currentMatch || currentMatch.status === 'finished') return;
     if (!confirm("Bạn chắc chắn muốn xác nhận kết thúc trận đấu? Kết quả sẽ được ghi vào lịch sử.")) return;
 
-    await finishMatch(currentMatch.id!);
+    const setsA = currentMatch.scoreA > currentMatch.scoreB ? 1 : 0;
+    const setsB = currentMatch.scoreA > currentMatch.scoreB ? 0 : 1;
+
+    await updateMatch(currentMatch.id!, { 
+        status: 'finished',
+        setsA,
+        setsB
+    });
     
     // Propagate winner
     const winnerName = currentMatch.scoreA > currentMatch.scoreB ? currentMatch.teamA : currentMatch.teamB;
