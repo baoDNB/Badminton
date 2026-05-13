@@ -183,7 +183,8 @@ function TournamentBracket({ matches, category }: { matches: Match[], category?:
 
 function AdminDashboard({ user }: { user: FirebaseUser }) {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [teams, setTeams] = useState<string[]>(Array(16).fill(''));
+  const [teams, setTeams] = useState<string[]>(Array(12).fill(''));
+  const [tournamentFormat, setTournamentFormat] = useState<'16 đội' | '12 đội (Double Chance 1.5)'>('16 đội');
   const [category, setCategory] = useState<'Đôi nam nữ' | 'Đôi nam'>('Đôi nam nữ');
   const [defaultRefereeEmail, setDefaultRefereeEmail] = useState('');
   const [filterCategory, setFilterCategory] = useState<'Tất cả' | 'Đôi nam nữ' | 'Đôi nam'>('Tất cả');
@@ -221,6 +222,111 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
         setLoading(false);
       }
     }
+  };
+
+  const generateTournament12 = async () => {
+    if (teams.filter(t => t.trim() !== '').length !== 12) {
+        alert("Vui lòng điền đủ 12 đội");
+        return;
+    }
+    
+    const slugify = (str: string) => {
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D')
+            .replace(/[^a-zA-Z0-9]/g, '_')
+            .replace(/_+/g, '_')
+            .toLowerCase();
+    };
+
+    setLoading(true);
+    const tournamentId = `T12-${slugify(category)}-${Date.now()}`;
+    const mId = (idx: number) => `${tournamentId}_m${idx}`;
+
+    try {
+        // Vòng 1: 6 matches (12 teams)
+        for (let i = 0; i < 6; i++) {
+            await createMatch({
+                id: mId(i + 1),
+                court: `Sân ${(i % 3) + 1}`,
+                category: category,
+                teamA: teams[i * 2],
+                teamB: teams[i * 2 + 1],
+                status: 'upcoming',
+                bracketInfo: { roundId: 'Vòng 1', matchIndex: i + 1 }
+            });
+        }
+
+        // Vòng Playoff: 3 matches (6 losers from V1)
+        for (let i = 0; i < 3; i++) {
+            await createMatch({
+                id: mId(i + 7),
+                court: `Sân ${(i % 3) + 1}`,
+                category: category,
+                teamA: 'Chờ kết quả V1',
+                teamB: 'Chờ kết quả V1',
+                status: 'upcoming',
+                bracketInfo: { roundId: 'Vòng Vé Vớt', matchIndex: i + 1 }
+            });
+        }
+
+        // Tứ kết: 4 matches
+        for (let i = 0; i < 4; i++) {
+            await createMatch({
+                id: mId(i + 10),
+                court: `Sân ${(i % 4) + 1}`,
+                category: category,
+                teamA: 'Chờ kết quả',
+                teamB: 'Chờ kết quả',
+                status: 'upcoming',
+                bracketInfo: { roundId: 'Tứ Kết', matchIndex: i + 1 }
+            });
+        }
+
+        // Bán kết: 2 matches
+        for (let i = 0; i < 2; i++) {
+             await createMatch({
+                id: mId(i + 14),
+                court: `Sân 1`,
+                category: category,
+                teamA: 'Chờ kết quả',
+                teamB: 'Chờ kết quả',
+                status: 'upcoming',
+                bracketInfo: { roundId: 'Bán Kết', matchIndex: i + 1 }
+            });
+        }
+
+        // Tranh giải 3: 1 match
+        await createMatch({
+            id: mId(16),
+            court: 'Sân 1',
+            category: category,
+            teamA: 'Chờ kết quả',
+            teamB: 'Chờ kết quả',
+            status: 'upcoming',
+            bracketInfo: { roundId: 'Tranh Giải 3', matchIndex: 1 }
+        });
+
+        // Chung kết: 1 match
+        await createMatch({
+            id: mId(17),
+            court: 'Sân 1',
+            category: category,
+            teamA: 'Chờ kết quả',
+            teamB: 'Chờ kết quả',
+            status: 'upcoming',
+            bracketInfo: { roundId: 'Chung Kết', matchIndex: 1 }
+        });
+        
+        alert("Đã khởi tạo giải đấu 12 đội (Double Chance 1.5). Tổng 17 trận.");
+        setActiveTab('monitor');
+    } catch (e) {
+        console.error("Tournament generation failed:", e);
+        alert("Có lỗi xảy ra khi tạo giải đấu");
+    }
+    setLoading(false);
   };
 
   const generateTournament = async () => {
@@ -446,8 +552,23 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                 <div className="relative z-10 space-y-8">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">Lập Giải Đấu 16 Đội</h2>
-                            <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mt-1">Hệ thống Double Elimination tự động</p>
+                            <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">Lập Giải Đấu</h2>
+                            <div className="flex gap-2">
+                                {['16 đội', '12 đội (Double Chance 1.5)'].map((fmt) => (
+                                    <button 
+                                      key={fmt}
+                                      onClick={() => setTournamentFormat(fmt as any)}
+                                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                                        tournamentFormat === fmt ? 'bg-emerald-500 text-black shadow-lg' : 'bg-neutral-800 text-neutral-500 hover:text-white'
+                                      }`}
+                                    >
+                                      {fmt}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mt-1">
+                                {tournamentFormat === '16 đội' ? 'Hệ thống Double Elimination tự động' : 'Thể thức Double Chance 1.5'}
+                            </p>
                             <div className="mt-4 flex bg-black/50 p-1 rounded-xl gap-1 border border-neutral-800">
                               {['Đôi nam nữ', 'Đôi nam'].map((cat) => (
                                 <button 
@@ -472,7 +593,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                             />
                             <button 
                                 disabled={loading}
-                                onClick={generateTournament}
+                                onClick={tournamentFormat === '16 đội' ? generateTournament : generateTournament12}
                                 className="w-full md:w-auto px-10 py-4 bg-emerald-500 text-black font-black rounded-2xl uppercase text-xs tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-xl disabled:opacity-50"
                             >
                                 {loading ? 'Đang khởi tạo...' : 'Tạo Giải Đấu'}
