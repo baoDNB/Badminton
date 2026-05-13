@@ -98,9 +98,10 @@ export interface Match {
   updatedAt: any;
   currentSet: number;
   setScores: { a: number; b: number }[];
+  pointHistory?: string[];
 }
 
-export async function createMatch(match: Omit<Match, 'updatedAt' | 'scoreA' | 'scoreB' | 'setsA' | 'setsB' | 'currentSet' | 'setScores' | 'serving'>) {
+export async function createMatch(match: Omit<Match, 'updatedAt' | 'scoreA' | 'scoreB' | 'setsA' | 'setsB' | 'currentSet' | 'setScores' | 'serving' | 'pointHistory'>) {
   const { id, ...data } = match;
   const matchId = id || `match_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
   const path = `matches/${matchId}`;
@@ -116,6 +117,7 @@ export async function createMatch(match: Omit<Match, 'updatedAt' | 'scoreA' | 's
       serving: 'A',
       currentSet: 1,
       setScores: [],
+      pointHistory: [],
       updatedAt: serverTimestamp(),
     });
     return matchId;

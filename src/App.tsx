@@ -866,56 +866,34 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
     });
   }, [selectedMatchId]);
 
+  const handleEndMatch = async () => {
+    if (!currentMatch || currentMatch.status === 'finished') return;
+    if (!confirm("Bạn chắc chắn muốn xác nhận kết thúc trận đấu? Kết quả sẽ được ghi vào lịch sử.")) return;
+
+    await finishMatch(currentMatch.id!);
+    
+    // Propagate winner
+    const winnerName = currentMatch.scoreA > currentMatch.scoreB ? currentMatch.teamA : currentMatch.teamB;
+    const loserName = currentMatch.scoreA > currentMatch.scoreB ? currentMatch.teamB : currentMatch.teamA;
+    propagateWinner(currentMatch.id!, winnerName, loserName).catch(console.error);
+    
+    setSelectedMatchId(null);
+  };
+
   const handlePoint = async (team: 'A' | 'B') => {
     if (!currentMatch || currentMatch.status === 'finished') return;
 
     const newAScore = team === 'A' ? currentMatch.scoreA + 1 : currentMatch.scoreA;
     const newBScore = team === 'B' ? currentMatch.scoreB + 1 : currentMatch.scoreB;
-
-    let setWinner = null;
-    if (newAScore >= 25 || newBScore >= 25) {
-      if (Math.abs(newAScore - newBScore) >= 2 || newAScore === 30 || newBScore === 30) {
-        setWinner = newAScore > newBScore ? 'A' : 'B';
-      }
-    }
+    const pointEntry = `Đội ${team === 'A' ? currentMatch.teamA : currentMatch.teamB} ghi điểm (${newAScore}-${newBScore}) lúc ${new Date().toLocaleTimeString('vi-VN')}`;
 
     const update: Partial<Match> = {
         scoreA: newAScore,
         scoreB: newBScore,
         serving: team,
-        status: 'live'
+        status: 'live',
+        pointHistory: [...(currentMatch.pointHistory || []), pointEntry]
     };
-
-    if (setWinner) {
-        const newSetScores = [...currentMatch.setScores, { a: newAScore, b: newBScore }];
-        const newASets = setWinner === 'A' ? currentMatch.setsA + 1 : currentMatch.setsA;
-        const newBSets = setWinner === 'B' ? currentMatch.setsB + 1 : currentMatch.setsB;
-        
-        const matchFinished = newASets === 1 || newBSets === 1;
-
-        Object.assign(update, {
-            setsA: newASets,
-            setsB: newBSets,
-            setScores: newSetScores,
-            // Only reset points if we are starting a NEW set, 
-            // but in a 1-set match, just leave the points as is or handle accordingly
-            scoreA: matchFinished ? newAScore : 0, 
-            scoreB: matchFinished ? newBScore : 0,
-            currentSet: matchFinished ? currentMatch.currentSet : currentMatch.currentSet + 1,
-            status: matchFinished ? 'finished' : 'live',
-            serving: setWinner
-        });
-
-        if (matchFinished) {
-            const winnerName = setWinner === 'A' ? currentMatch.teamA : currentMatch.teamB;
-            const loserName = setWinner === 'A' ? currentMatch.teamB : currentMatch.teamA;
-            // First update the current match to finished state
-            await updateMatch(currentMatch.id!, update);
-            // Then propagate winner (fire and forget for this UI update cycle)
-            propagateWinner(currentMatch.id!, winnerName, loserName).catch(console.error);
-            return; // Exit early as we already updated
-        }
-    }
 
     await updateMatch(currentMatch.id!, update);
   };
@@ -1053,16 +1031,12 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
             >
                 <RotateCcw size={14} /> Hoàn tác
             </button>
-            <button 
-                onClick={() => {
-                    const winner = prompt("Bạn muốn xử thắng cho đội nào? Nhập 'A' hoặc 'B':");
-                    if (winner === 'A' || winner === 'a') forceFinish('A');
-                    if (winner === 'B' || winner === 'b') forceFinish('B');
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+            <div 
+                onClick={handleEndMatch}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all relative z-50 pointer-events-auto cursor-pointer"
             >
-                Kết thúc sớm
-            </button>
+                <Trophy size={14} /> Xác nhận kết thúc
+            </div>
         </div>
       </div>
 
@@ -1139,6 +1113,32 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
                         <div key={i} className={`w-10 h-2 rounded-full transition-colors duration-500 ${i < currentMatch.setsB ? 'bg-sky-500 shadow-sm shadow-sky-500/50' : 'bg-neutral-900'}`} />
                     ))}
                 </div>
+            </div>
+        </div>
+
+        {/* --- Point History Display --- */}
+        <div className="bg-neutral-900 p-6 rounded-2xl border border-neutral-800">
+            <h4 className="text-[10px] font-black uppercase text-neutral-500 tracking-widest mb-4">Lịch sử điểm</h4>
+            <div className="space-y-2">
+                <div className="grid grid-cols-4 gap-2 text-[10px] font-bold text-neutral-500 uppercase px-4">
+                    <span>Đội</span>
+                    <span>Tỉ số</span>
+                    <span className="col-span-2 text-right">Thời gian</span>
+                </div>
+                {(currentMatch.pointHistory || []).slice(-10).map((entry, idx) => {
+                    // Expecting format: "Đội <Name> ghi điểm (<AScore>-<BScore>) lúc <Time>"
+                    // A simple regex approach to split the string
+                    const match = entry.match(/Đội (.+) ghi điểm \((.+)\) lúc (.+)/);
+                    if (!match) return <div key={idx} className="px-4 py-2 bg-neutral-800 rounded-lg text-sm text-white">{entry}</div>;
+                    const [_, teamName, score, time] = match;
+                    return (
+                        <div key={idx} className="grid grid-cols-4 gap-2 px-4 py-3 bg-neutral-800 rounded-xl text-sm font-medium text-white items-center">
+                            <span className="truncate">{teamName}</span>
+                            <span>{score}</span>
+                            <span className="col-span-2 text-right font-mono text-neutral-400">{time}</span>
+                        </div>
+                    );
+                })}
             </div>
         </div>
 
