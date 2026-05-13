@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "Match": {
+      "title": "Match",
+      "description": "A badminton match occurring on a specific court.",
+      "type": "object",
+      "properties": {
+        "court": { "type": "string", "description": "Court name/ID (e.g., Sân 1)" },
+        "teamA": { "type": "string" },
+        "teamB": { "type": "string" },
+        "scoreA": { "type": "number" },
+        "scoreB": { "type": "number" },
+        "setsA": { "type": "number" },
+        "setsB": { "type": "number" },
+        "refereeEmail": { "type": "string", "description": "Email của trọng tài được giao nhiệm vụ" },
+        "category": { "type": "string", "enum": ["Đôi nam nữ", "Đôi nam"] },
+        "bracketInfo": {
+          "type": "object",
+          "properties": {
+            "roundId": { "type": "string" },
+            "matchIndex": { "type": "number" },
+            "winnerToMatchId": { "type": "string" },
+            "winnerToPosition": { "type": "string", "enum": ["A", "B"] },
+            "loserToMatchId": { "type": "string" },
+            "loserToPosition": { "type": "string", "enum": ["A", "B"] }
+          }
+        },
+        "serving": { "type": "string", "enum": ["A", "B"] },
+        "status": { "type": "string", "enum": ["upcoming", "live", "finished"] },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "currentSet": { "type": "number" },
+        "setScores": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "a": { "type": "number" },
+              "b": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["court", "teamA", "teamB", "scoreA", "scoreB", "setsA", "setsB", "status", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/matches/{matchId}": {
+      "schema": "Match",
+      "description": "Active and scheduled matches."
+    }
+  }
+}

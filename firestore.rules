@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- PHASE 3: Primitives ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn(); } // Simplified for MVP, usually checks email_verified
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- Match Validation ---
+    function isValidMatch(data) {
+      return data.court is string && data.court.size() <= 100
+        && data.teamA is string && data.teamA.size() <= 200
+        && data.teamB is string && data.teamB.size() <= 200
+        && (data.scoreA is int || data.scoreA is float)
+        && (data.scoreB is int || data.scoreB is float)
+        && (data.setsA is int || data.setsA is float)
+        && (data.setsB is int || data.setsB is float)
+        && data.status in ['upcoming', 'live', 'finished']
+        && (data.get('category', null) == null || data.category is string)
+        && (data.get('refereeEmail', null) == null || data.refereeEmail is string)
+        && data.updatedAt == request.time;
+    }
+
+    match /matches/{matchId} {
+      allow read: if isSignedIn();
+      
+      allow create: if isAdmin() && isValidId(matchId) && isValidMatch(incoming()) 
+        && incoming().scoreA == 0 && incoming().scoreB == 0;
+
+      allow update: if isSignedIn() && (
+        isAdmin() || (
+          // Referee updates: must be the assigned referee (or match is unassigned)
+          (existing().get('refereeEmail', null) == null || request.auth.token.email == existing().refereeEmail) &&
+          isValidMatch(incoming()) &&
+          existing().status != 'finished' &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'scoreA', 'scoreB', 'setsA', 'setsB', 'serving', 'status', 'updatedAt', 'currentSet', 'setScores'
+          ]) &&
+          incoming().court == existing().court &&
+          incoming().teamA == existing().teamA &&
+          incoming().teamB == existing().teamB &&
+          incoming().get('refereeEmail', null) == existing().get('refereeEmail', null)
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (request.auth.token.email == 'baopa0805@gmail.com' || request.auth.token.email == 'tongducduy4@gmail.com'); 
+    }
+  }
+}
