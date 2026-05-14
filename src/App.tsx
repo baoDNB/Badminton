@@ -125,11 +125,13 @@ function TournamentBracket({ matches, category, format }: { matches: Match[], ca
     { id: 'round6', name: 'Chung Kết', matchIndices: [17] }, 
   ] : [
     { id: 'round1', name: 'Vòng 1', matchIndices: [1, 2, 3, 4, 5, 6, 7, 8] },
-    { id: 'round2', name: 'Vòng 2 (T/L)', matchIndices: [9, 10, 11, 12, 13, 14, 15, 16] },
+    { id: 'round2_thang', name: 'Vòng 2 (Nhánh Thắng)', matchIndices: [9, 10, 11, 12] },
+    { id: 'round2_thua', name: 'Vòng 2 (Nhánh Thua)', matchIndices: [13, 14, 15, 16] },
     { id: 'round_rep', name: 'Vé Vớt', matchIndices: [17, 18, 19, 20] },
     { id: 'round3', name: 'Tứ Kết', matchIndices: [21, 22, 23, 24] },
     { id: 'round4', name: 'Bán Kết', matchIndices: [25, 26] },
-    { id: 'round5', name: 'Chung Kết', matchIndices: [28, 27] }, 
+    { id: 'round5', name: 'Tranh Giải 3', matchIndices: [27] },
+    { id: 'round6', name: 'Chung Kết', matchIndices: [28] }, 
   ];
 
   const getMatchByTitleIdx = (idx: number) => {
@@ -327,7 +329,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
         for (let i = 0; i < 4; i++) {
             await createMatch({
                 id: mId(i + 10),
-                court: `Sân ${(i % 4) + 1}`,
+                court: `Sân ${(i % 3) + 1}`,
                 category: category,
                 teamA: qfTeams[i].a,
                 teamB: qfTeams[i].b,
@@ -424,7 +426,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
         for (let i = 0; i < 8; i++) {
             await createMatch({
                 id: mId(i + 1),
-                court: `Sân ${(i % 4) + 1}`,
+                court: `Sân ${(i % 3) + 1}`,
                 category: category,
                 refereeEmail: defaultRefereeEmail || null,
                 teamA: currentTeams[i * 2],
@@ -445,7 +447,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
         for (let i = 0; i < 4; i++) {
             await createMatch({
                 id: mId(i + 9),
-                court: `Sân ${(i % 4) + 1}`,
+                court: `Sân ${(i % 3) + 1}`,
                 category: category,
                 refereeEmail: defaultRefereeEmail || null,
                 teamA: `Thắng M${i * 2 + 1}`,
@@ -466,7 +468,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
         for (let i = 0; i < 4; i++) {
             await createMatch({
                 id: mId(i + 13),
-                court: `Sân ${(i % 4) + 1}`,
+                court: `Sân ${(i % 3) + 1}`,
                 category: category,
                 refereeEmail: defaultRefereeEmail || null,
                 teamA: `Thua M${i * 2 + 1}`,
@@ -485,7 +487,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
         for (let i = 0; i < 4; i++) {
             await createMatch({
                 id: mId(i + 17),
-                court: `Sân ${(i % 4) + 1}`,
+                court: `Sân ${(i % 3) + 1}`,
                 category: category,
                 refereeEmail: defaultRefereeEmail || null,
                 teamA: `Thua M${12 - i}`,
@@ -504,7 +506,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
         for (let i = 0; i < 4; i++) {
             await createMatch({
                 id: mId(i + 21),
-                court: `Sân ${(i % 4) + 1}`,
+                court: `Sân ${(i % 3) + 1}`,
                 category: category,
                 refereeEmail: defaultRefereeEmail || null,
                 teamA: `Thắng M${i + 9}`,
