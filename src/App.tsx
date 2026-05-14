@@ -222,6 +222,15 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
     .sort((a, b) => {
         if (a.status === 'live' && b.status !== 'live') return -1;
         if (a.status !== 'live' && b.status === 'live') return 1;
+        
+        if (a.scheduledTime && b.scheduledTime && a.scheduledTime !== b.scheduledTime) {
+            return a.scheduledTime.localeCompare(b.scheduledTime);
+        } else if (a.scheduledTime && !b.scheduledTime) {
+            return -1;
+        } else if (!a.scheduledTime && b.scheduledTime) {
+            return 1;
+        }
+
         return (a.bracketInfo?.matchIndex || 0) - (b.bracketInfo?.matchIndex || 0);
     });
   const historyMatches = matches
@@ -741,7 +750,9 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                 <div key={match.id} className="bg-neutral-900/50 border border-neutral-800 p-5 rounded-[2rem] flex items-center justify-between group hover:border-neutral-700 transition-all shadow-lg active:scale-[0.99] cursor-default">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase text-emerald-500/70 tracking-[0.2em]">{match.court} {match.bracketInfo && ` / ${match.bracketInfo.roundId}`}</span>
+                      <span className="text-[10px] font-black uppercase text-emerald-500/70 tracking-[0.2em]">
+                        {match.scheduledTime ? `${match.scheduledTime} - ` : ''}{match.court} {match.bracketInfo && ` / ${match.bracketInfo.roundId}`}
+                      </span>
                       <span className="text-[9px] font-black text-neutral-800 uppercase tracking-widest">[{match.category}]</span>
                     </div>
                     <h3 className="font-black text-white text-xl tracking-tight uppercase italic">
@@ -755,26 +766,58 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                         </div>
                     )}
                     {match.status === 'upcoming' && <span className="text-[9px] bg-neutral-800 text-neutral-400 px-3 py-1 rounded-full font-black uppercase tracking-widest">Chờ thi đấu</span>}
-                    <div className="flex items-center gap-2 mt-1">
-                      <input 
-                        type="email"
-                        placeholder="Email Trọng tài"
-                        defaultValue={match.refereeEmail || ''}
-                        onBlur={async (e) => {
-                          const newEmail = e.target.value.trim() || null;
-                          if (newEmail !== match.refereeEmail && match.id) {
-                            try {
-                              await updateMatch(match.id, { refereeEmail: newEmail });
-                            } catch (err) {
-                              console.error(err);
-                            }
-                          }
-                        }}
-                        className="bg-neutral-800/50 border border-neutral-800 text-[9px] px-2 py-1 rounded-[0.5rem] w-40 text-neutral-400 focus:border-emerald-500 outline-none transition-all"
-                      />
-                      <span className="text-[8px] text-neutral-600 font-black uppercase tracking-widest">
-                        {match.refereeEmail ? 'Đã gán' : 'Bỏ trống'}
-                      </span>
+                    <div className="flex flex-col gap-2 mt-2">
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="email"
+                            placeholder="Email Trọng tài"
+                            defaultValue={match.refereeEmail || ''}
+                            onBlur={async (e) => {
+                              const newEmail = e.target.value.trim() || null;
+                              if (newEmail !== match.refereeEmail && match.id) {
+                                try {
+                                  await updateMatch(match.id, { refereeEmail: newEmail });
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }
+                            }}
+                            className="bg-neutral-800/50 border border-neutral-800 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg w-40 text-neutral-300 focus:border-emerald-500 outline-none transition-all"
+                          />
+                          <select
+                            defaultValue={match.court || ''}
+                            onChange={async (e) => {
+                              const newCourt = e.target.value;
+                              if (newCourt !== match.court && match.id) {
+                                try {
+                                  await updateMatch(match.id, { court: newCourt });
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }
+                            }}
+                            className="bg-neutral-800/50 border border-neutral-800 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg text-neutral-300 focus:border-emerald-500 outline-none transition-all cursor-pointer"
+                          >
+                            <option value="Sân 1">Sân 1</option>
+                            <option value="Sân 2">Sân 2</option>
+                            <option value="Sân 3">Sân 3</option>
+                          </select>
+                          <input 
+                            type="time"
+                            defaultValue={match.scheduledTime || ''}
+                            onBlur={async (e) => {
+                              const newTime = e.target.value;
+                              if (newTime !== match.scheduledTime && match.id) {
+                                try {
+                                  await updateMatch(match.id, { scheduledTime: newTime });
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }
+                            }}
+                            className="bg-neutral-800/50 border border-neutral-800 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg text-neutral-300 focus:border-emerald-500 outline-none transition-all"
+                          />
+                        </div>
                     </div>
                     </div>
                 </div>
@@ -1092,6 +1135,15 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
         .sort((a, b) => {
           if (a.status === 'live' && b.status !== 'live') return -1;
           if (a.status !== 'live' && b.status === 'live') return 1;
+
+          if (a.scheduledTime && b.scheduledTime && a.scheduledTime !== b.scheduledTime) {
+              return a.scheduledTime.localeCompare(b.scheduledTime);
+          } else if (a.scheduledTime && !b.scheduledTime) {
+              return -1;
+          } else if (!a.scheduledTime && b.scheduledTime) {
+              return 1;
+          }
+
           return (a.bracketInfo?.matchIndex || 0) - (b.bracketInfo?.matchIndex || 0);
         });
       // Clientside filtering to show only assigned matches for non-admins
@@ -1270,7 +1322,7 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
                 className="bg-neutral-900 border border-neutral-800 p-6 rounded-[2rem] flex items-center justify-between hover:border-emerald-500 hover:bg-neutral-800/50 transition-all text-left shadow-xl group"
               >
                 <div>
-                  <span className="text-[10px] font-black uppercase text-emerald-500 tracking-[0.2em]">{match.court}</span>
+                  <span className="text-[10px] font-black uppercase text-emerald-500 tracking-[0.2em]">{match.scheduledTime ? `${match.scheduledTime} - ` : ''}{match.court}</span>
                   <p className="font-black text-white text-xl mt-1 tracking-tight">{match.teamA} vs {match.teamB}</p>
                   <p className="text-[9px] text-neutral-500 uppercase font-bold mt-2">Trạng thái: {match.status === 'live' ? 'Đang đấu' : 'Chưa đấu'}</p>
                 </div>
@@ -1324,7 +1376,7 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
         <div className="flex justify-between items-start">
             <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-black uppercase tracking-widest">{currentMatch.court}</span>
+                  <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-black uppercase tracking-widest">{currentMatch.scheduledTime ? `${currentMatch.scheduledTime} - ` : ''}{currentMatch.court}</span>
                   <span className="text-[10px] font-black text-neutral-700 uppercase tracking-widest italic">[{currentMatch.category}]</span>
                 </div>
                 <h3 className="text-xl font-bold text-white mt-1 uppercase tracking-tight">Trận đấu <span className="text-neutral-500 font-normal">/ 25 Pts</span></h3>

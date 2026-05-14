@@ -93,6 +93,7 @@ export interface Match {
     loserToMatchId?: string | null;
     loserToPosition?: 'A' | 'B';
   };
+  scheduledTime?: string;
   serving: 'A' | 'B' | null;
   status: 'upcoming' | 'live' | 'finished';
   updatedAt: any;
