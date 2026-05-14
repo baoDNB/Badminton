@@ -99,7 +99,7 @@ function TournamentBracket({ matches, category, format }: { matches: Match[], ca
   const availableCategories = Array.from(new Set(matches.map(m => m.category))).filter(Boolean) as string[];
   
   // If category is "Tất cả", prefer "Đôi nam nữ" if it exists, otherwise use the first available category
-  const displayCategory = (category === 'Tất cả' || !category) 
+  const displayCategory = (category === '' || !category) 
     ? (availableCategories.includes('Đôi nam nữ') ? 'Đôi nam nữ' : availableCategories[0])
     : category;
 
@@ -199,13 +199,14 @@ function TournamentBracket({ matches, category, format }: { matches: Match[], ca
 
 function AdminDashboard({ user }: { user: FirebaseUser }) {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [teams, setTeams] = useState<string[]>(Array(16).fill(''));
+  const [teams, setTeams] = useState<{ '16 đội': string[], '12 đội': string[] }>({ '16 đội': Array(16).fill(''), '12 đội': Array(12).fill('') });
   const [tournamentFormat, setTournamentFormat] = useState<'16 đội' | '12 đội (Double Chance 1.5)'>('16 đội');
   const [category, setCategory] = useState<'Đôi nam nữ' | 'Đôi nam'>('Đôi nam nữ');
   const [defaultRefereeEmail, setDefaultRefereeEmail] = useState('');
   const [filterCategory, setFilterCategory] = useState<'Tất cả' | 'Đôi nam nữ' | 'Đôi nam'>('Tất cả');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'create' | 'tournament' | 'monitor' | 'history' | 'bracket' | 'luckywheel'>('monitor');
+  const [wheelNames, setWheelNames] = useState<{ '16 đội': string[], '12 đội': string[] }>({ '16 đội': [], '12 đội': [] });
 
   useEffect(() => {
     const q = query(collection(db, 'matches'), orderBy('updatedAt', 'desc'));
@@ -214,8 +215,19 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
     });
   }, []);
 
-  const activeMatches = matches.filter(m => m.status !== 'finished' && (filterCategory === 'Tất cả' || m.category === filterCategory));
-  const historyMatches = matches.filter(m => m.status === 'finished' && (filterCategory === 'Tất cả' || m.category === filterCategory));
+  const activeMatches = matches
+    .filter(m => m.status !== 'finished' && (filterCategory === 'Tất cả' || m.category === filterCategory))
+    .sort((a, b) => {
+        if (a.status === 'live' && b.status !== 'live') return -1;
+        if (a.status !== 'live' && b.status === 'live') return 1;
+        return (a.bracketInfo?.matchIndex || 0) - (b.bracketInfo?.matchIndex || 0);
+    });
+  const historyMatches = matches
+    .filter(m => m.status === 'finished' && (filterCategory === 'Tất cả' || m.category === filterCategory))
+    .sort((a, b) => (b.bracketInfo?.matchIndex || 0) - (a.bracketInfo?.matchIndex || 0));
+
+  const currentTeams = tournamentFormat === '16 đội' ? teams['16 đội'] : teams['12 đội'];
+  const currentWheelNames = tournamentFormat === '16 đội' ? wheelNames['16 đội'] : wheelNames['12 đội'];
 
   const handleDeleteAll = async () => {
     if (window.confirm('CẢNH BÁO: Bạn có chắc chắn muốn XÓA TẤT CẢ trận đấu không? Dữ liệu sẽ không thể khôi phục.')) {
@@ -241,7 +253,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
   };
 
   const generateTournament12 = async () => {
-    const activeTeams = teams.slice(0, 12);
+    const activeTeams = currentTeams.slice(0, 12);
     if (activeTeams.filter(t => t.trim() !== '').length !== 12) {
         alert("Vui lòng điền đủ 12 đội");
         return;
@@ -385,7 +397,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
   };
 
   const generateTournament = async () => {
-    if (teams.some(t => !t.trim())) {
+    if (currentTeams.some(t => !t.trim())) {
         return;
     }
     
@@ -415,8 +427,8 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                 court: `Sân ${(i % 4) + 1}`,
                 category: category,
                 refereeEmail: defaultRefereeEmail || null,
-                teamA: teams[i * 2],
-                teamB: teams[i * 2 + 1],
+                teamA: currentTeams[i * 2],
+                teamB: currentTeams[i * 2 + 1],
                 status: 'upcoming',
                 bracketInfo: {
                     roundId: 'Vòng 1',
@@ -657,7 +669,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {teams.slice(0, tournamentFormat === '16 đội' ? 16 : 12).map((team, idx) => (
+                        {currentTeams.slice(0, tournamentFormat === '16 đội' ? 16 : 12).map((team, idx) => (
                             <div key={idx} className="relative">
                                 <span className="absolute -top-2 -left-2 w-6 h-6 bg-neutral-800 border border-neutral-700 rounded-lg flex items-center justify-center text-[10px] font-black text-emerald-500 z-10 shadow-lg">{idx + 1}</span>
                                 <input 
@@ -665,9 +677,9 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                                     className="w-full bg-neutral-950 border border-neutral-800 p-4 rounded-2xl text-sm font-bold text-white outline-none focus:border-emerald-500 transition-all placeholder:text-neutral-800"
                                     value={team}
                                     onChange={(e) => {
-                                        const newTeams = [...teams];
+                                        const newTeams = [...currentTeams];
                                         newTeams[idx] = e.target.value;
-                                        setTeams(newTeams);
+                                        setTeams(prev => ({ ...prev, [tournamentFormat === '16 đội' ? '16 đội' : '12 đội']: newTeams }));
                                     }}
                                 />
                             </div>
@@ -690,7 +702,7 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
                   <LayoutDashboard className="text-emerald-500" size={20} /> Giám sát trực tiếp
                   </h2>
                   <div className="flex gap-2 items-center mt-2 overflow-x-auto pb-1 scrollbar-hide">
-                    {['Tất cả', 'Đôi nam nữ', 'Đôi nam'].map((cat) => (
+                    {[ 'Đôi nam nữ', 'Đôi nam'].map((cat) => (
                       <button 
                         key={cat}
                         onClick={() => setFilterCategory(cat as any)}
@@ -852,20 +864,32 @@ function AdminDashboard({ user }: { user: FirebaseUser }) {
             </div>
 
             <RandomWheel 
+              names={currentWheelNames}
+              onNamesChange={(newNames) => setWheelNames(prev => ({ ...prev, [tournamentFormat === '16 đội' ? '16 đội' : '12 đội']: newNames }))}
               maxTeams={tournamentFormat === '16 đội' ? 16 : 12}
               onAssignTeams={(newTeams) => {
-                const paddedTeams = Array(16).fill('');
-                newTeams.forEach((t, i) => paddedTeams[i] = t);
-                setTeams(paddedTeams);
+                const limit = tournamentFormat === '16 đội' ? 16 : 12;
+                const current = [...currentTeams];
+                let newIndex = 0;
+                for (let i = 0; i < limit; i++) {
+                   if (!current[i] || current[i].trim() === '') {
+                       if (newIndex < newTeams.length) {
+                           current[i] = newTeams[newIndex];
+                           newIndex++;
+                       }
+                   }
+                }
+                setTeams(prev => ({ ...prev, [tournamentFormat === '16 đội' ? '16 đội' : '12 đội']: current }));
+                setWheelNames(prev => ({ ...prev, [tournamentFormat === '16 đội' ? '16 đội' : '12 đội']: newTeams.slice(newIndex) }));
                 setActiveTab('tournament');
               }}
               onTeamPicked={(winner) => {
                 const limit = tournamentFormat === '16 đội' ? 16 : 12;
-                const emptyIdx = teams.findIndex((t, i) => i < limit && (!t || t.trim() === ''));
+                const emptyIdx = currentTeams.findIndex((t, i) => i < limit && (!t || t.trim() === ''));
                 if (emptyIdx !== -1) {
-                    const newTeams = [...teams];
+                    const newTeams = [...currentTeams];
                     newTeams[emptyIdx] = winner;
-                    setTeams(newTeams);
+                    setTeams(prev => ({ ...prev, [tournamentFormat === '16 đội' ? '16 đội' : '12 đội']: newTeams }));
                 }
               }}
             />
@@ -1062,7 +1086,12 @@ function RefereeView({ isAdmin, user }: { isAdmin: boolean, user: FirebaseUser }
     let q = query(collection(db, 'matches'), where('status', 'in', ['upcoming', 'live']), orderBy('updatedAt', 'desc'));
     
     return onSnapshot(q, (snapshot) => {
-      const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match));
+      const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match))
+        .sort((a, b) => {
+          if (a.status === 'live' && b.status !== 'live') return -1;
+          if (a.status !== 'live' && b.status === 'live') return 1;
+          return (a.bracketInfo?.matchIndex || 0) - (b.bracketInfo?.matchIndex || 0);
+        });
       // Clientside filtering to show only assigned matches for non-admins
       if (isAdmin) {
         setAvailableMatches(all);

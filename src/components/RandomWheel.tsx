@@ -7,6 +7,8 @@ interface RandomWheelProps {
   onAssignTeams: (teams: string[]) => void;
   onTeamPicked?: (team: string) => void;
   maxTeams?: number;
+  names?: string[];
+  onNamesChange?: (names: string[]) => void;
 }
 
 const COLORS = [
@@ -15,8 +17,11 @@ const COLORS = [
   '#a78bfa', '#c084fc', '#e879f9', '#f472b6'
 ];
 
-export function RandomWheel({ onAssignTeams, onTeamPicked, maxTeams = 16 }: RandomWheelProps) {
-  const [names, setNames] = useState<string[]>([]);
+export function RandomWheel({ onAssignTeams, onTeamPicked, maxTeams = 16, names: controlledNames, onNamesChange }: RandomWheelProps) {
+  const [internalNames, setInternalNames] = useState<string[]>([]);
+  const names = controlledNames ?? internalNames;
+  const setNames = onNamesChange ?? setInternalNames;
+
   const [newName, setNewName] = useState('');
   const [isSpinning, setIsSpinning] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
@@ -153,12 +158,7 @@ export function RandomWheel({ onAssignTeams, onTeamPicked, maxTeams = 16 }: Rand
 
   const shuffleAndFill = () => {
     const shuffled = [...names].sort(() => Math.random() - 0.5);
-    // Fill up to maxTeams with empty strings if needed
-    const filled = Array(maxTeams).fill('');
-    shuffled.forEach((name, i) => {
-      if (i < maxTeams) filled[i] = name;
-    });
-    onAssignTeams(filled);
+    onAssignTeams(shuffled);
   };
 
   const handleTextPaste = (e: React.ClipboardEvent) => {
