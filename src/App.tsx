@@ -288,6 +288,87 @@ function TournamentBracket({
   );
 }
 
+
+function getMatchAbbreviationGlobal(match: Match) {
+    if (!match.bracketInfo) return "?";
+    const c = match.category;
+    const r = match.bracketInfo.roundId;
+    const m = match.bracketInfo.matchIndex;
+
+    // T16 matches (Đôi nam - default)
+    if (c === "Đôi nam") {
+      if (r === "Vòng 1") return `VL${m}`;
+      if (r === "Vòng 2 (Nhánh Thắng)") return `SE${m - 8}`;
+      if (r === "Vòng 2 (Nhánh Thua)") return `PO${m - 12}`;
+      if (r === "Vé Vớt" || r === "Vòng Vé Vớt") return `W${m - 16}`;
+      if (r === "Tứ Kết") return `TK${m - 20}`;
+      if (r === "Bán Kết") return `BK${m - 24}`;
+      if (r === "Tranh Giải 3" || r === "Tranh giải 3") return `G3`;
+      if (r === "Chung Kết") return `CK`;
+    } else {
+      // T12 matches (Đôi nam nữ)
+      if (r === "Vòng 1") return `VLN${m}`;
+      if (r === "Vòng Vé Vớt" || r === "Vé Vớt") return `PON${m - 6}`;
+      if (r === "Tứ Kết") return `TKN${m - 9}`;
+      if (r === "Bán Kết") return `BKN${m - 13}`;
+      if (r === "Tranh Giải 3" || r === "Tranh giải 3") return `GN3`;
+      if (r === "Chung Kết") return `CKN`;
+    }
+    return `${r} (M${m})`;
+}
+
+function MatchTable({ availableMatches, setSelectedMatchId, showFinished = false }) {
+  return (
+    <div className="bg-neutral-900/50 border border-neutral-800 text-neutral-300 p-4 rounded-3xl overflow-x-auto mt-4 shadow-xl shadow-black/20">
+      <h3 className="text-center font-black text-xl mb-4 text-emerald-400 uppercase tracking-tighter">
+        Lịch Thi Đấu
+      </h3>
+      <div className="min-w-[600px]">
+        <table className="w-full text-center border-collapse border border-neutral-800">
+          <thead className="bg-neutral-800 text-emerald-400">
+            <tr>
+              <th className="p-2 border border-neutral-700 uppercase text-[10px] tracking-widest w-10">STT</th>
+              <th className="p-2 border border-neutral-700 uppercase text-[10px] tracking-widest w-1/4">Sân 1</th>
+              <th className="p-2 border border-neutral-700 uppercase text-[10px] tracking-widest w-1/4">Sân 2</th>
+              <th className="p-2 border border-neutral-700 uppercase text-[10px] tracking-widest w-1/4">Sân 3</th>
+              <th className="p-2 border border-neutral-700 uppercase text-[10px] tracking-widest w-20">Thời gian</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from(new Set(availableMatches.filter(m => showFinished || m.status !== "finished").map(m => m.scheduledTime).filter(Boolean))).sort().map((t, idx) => {
+              const matchesAtTime = availableMatches.filter((m) => (showFinished || m.status !== "finished") && m.scheduledTime === t);
+              const mS1 = matchesAtTime.find((m) => m.court === "Sân 1");
+              const mS2 = matchesAtTime.find((m) => m.court === "Sân 2");
+              const mS3 = matchesAtTime.find((m) => m.court === "Sân 3");
+              const renderCell = (m?: any) => {
+                if (!m) return <span className="text-neutral-600">-</span>;
+                return (
+                  <button onClick={() => setSelectedMatchId(m.id!)} className="flex flex-col items-center justify-center p-1.5 w-full hover:bg-neutral-800/50 transition-colors">
+                    <span className="font-black text-sm text-emerald-400 leading-none mb-1">{getMatchAbbreviationGlobal(m)}</span>
+                    <span className="text-[10px] font-medium text-neutral-300 max-w-[140px] truncate leading-tight w-full opacity-90">{m.teamA}</span>
+                    <span className="text-[10px] font-medium text-neutral-300 max-w-[140px] truncate leading-tight w-full opacity-90 mt-0.5">{m.teamB}</span>
+                    {m.status === "live" && <span className="text-[8px] bg-red-500/20 text-red-500 border border-red-500/50 px-2 py-0.5 rounded uppercase font-black tracking-widest mt-1 animate-pulse">Live {m.scoreA}:{m.scoreB}</span>}
+                    {m.status === "finished" && <span className="text-[8px] bg-neutral-800 text-neutral-500 border border-neutral-700 px-2 py-0.5 rounded uppercase font-black tracking-widest mt-1">Xong</span>}
+                  </button>
+                );
+              };
+              return (
+                <tr key={t} className="even:bg-neutral-800/30 odd:bg-transparent transition-colors">
+                  <td className="p-2 border border-neutral-800 font-bold text-neutral-400">{idx + 1}</td>
+                  <td className="p-0 align-middle border border-neutral-800">{renderCell(mS1)}</td>
+                  <td className="p-0 align-middle border border-neutral-800">{renderCell(mS2)}</td>
+                  <td className="p-0 align-middle border border-neutral-800">{renderCell(mS3)}</td>
+                  <td className="p-2 border border-neutral-800 font-bold text-sm text-emerald-400">{t}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function AdminDashboard({ user }: { user: FirebaseUser }) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<{
@@ -1586,6 +1667,7 @@ function RefereeView({
   const [currentMatch, setCurrentMatch] = useState<Match | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("Tất cả");
   const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "table">("table");
 
   const handleDeleteAll = async () => {
     if (!isAdmin) return;
@@ -1791,6 +1873,7 @@ function RefereeView({
       status: "finished",
       setsA,
       setsB,
+      updatedAt: serverTimestamp(),
     });
 
     // Propagate winner
@@ -1901,6 +1984,12 @@ function RefereeView({
               </button>
             )}
             <button
+              onClick={() => setViewMode(viewMode === "list" ? "table" : "list")}
+              className="text-[10px] font-black bg-indigo-500/10 text-indigo-400 px-3 py-1 rounded-full hover:bg-indigo-500/20 transition-all uppercase tracking-widest"
+            >
+              {viewMode === "list" ? "Bảng lịch" : "Danh sách"}
+            </button>
+            <button
               onClick={() => setShowBracket(!showBracket)}
               className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                 showBracket
@@ -1941,7 +2030,7 @@ function RefereeView({
             </div>
             <TournamentBracket matches={allMatches} category={filterCategory} />
           </div>
-        ) : (
+        ) : viewMode === "list" ? (
           <div className="grid gap-4">
             {availableMatches
               .filter((m) => m.status !== "finished")
@@ -1952,10 +2041,7 @@ function RefereeView({
                   className="bg-neutral-900 border border-neutral-800 p-6 rounded-[2rem] flex items-center justify-between hover:border-emerald-500 hover:bg-neutral-800/50 transition-all text-left shadow-xl group"
                 >
                   <div>
-                    <span className="text-[10px] font-black uppercase text-emerald-500 tracking-[0.2em]">
-                      {match.scheduledTime ? `${match.scheduledTime} - ` : ""}
-                      {match.court}
-                    </span>
+                    <span className="text-[10px] font-black uppercase text-emerald-500 tracking-[0.2em]">{match.scheduledTime ? `${match.scheduledTime} - ` : ""}{match.court}</span>
                     <p className="font-black text-white text-xl mt-1 tracking-tight">
                       {match.teamA} vs {match.teamB}
                     </p>
@@ -1963,6 +2049,7 @@ function RefereeView({
                       Trạng thái:{" "}
                       {match.status === "live" ? "Đang đấu" : "Chưa đấu"}
                     </p>
+
                   </div>
                   <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-black transition-colors text-neutral-500">
                     <ChevronRight size={20} />
@@ -1982,6 +2069,10 @@ function RefereeView({
               </div>
             )}
           </div>
+        ) : (
+          <MatchTable availableMatches={allMatches} setSelectedMatchId={setSelectedMatchId} showFinished={true} />
+
+
         )}
       </div>
     );
