@@ -42,7 +42,7 @@ service cloud.firestore {
           isValidMatch(incoming()) &&
           existing().status != 'finished' &&
           incoming().diff(existing()).affectedKeys().hasOnly([
-            'scoreA', 'scoreB', 'setsA', 'setsB', 'serving', 'status', 'updatedAt', 'currentSet', 'setScores'
+            'scoreA', 'scoreB', 'setsA', 'setsB', 'serving', 'status', 'updatedAt', 'currentSet', 'setScores', 'pointHistory'
           ]) &&
           incoming().court == existing().court &&
           incoming().teamA == existing().teamA &&
